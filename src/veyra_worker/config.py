@@ -31,7 +31,7 @@ class Settings:
     max_live: int = 2  # sesiones en vivo simultáneas
     max_batch: int = 1  # entrenamientos/predicciones a la vez (una GPU)
     poll_wait: float = 20.0  # segundos que la API retiene una petición de trabajo
-    heartbeat_every: float = 10.0
+    heartbeat_every: float = 5.0
     live_start_timeout: float = 120.0
     pretrained_dirs: tuple[str, ...] = ()  # carpetas con pesos preentrenados (además de la carpeta compartida)
 
@@ -49,6 +49,7 @@ class Settings:
         s.python = e.get("VEYRA_PYTHON", s.python)
         s.advertise_host = e.get("VEYRA_ADVERTISE_HOST", "")
         s.live_ports = _port_range(e.get("VEYRA_LIVE_PORTS", "9000-9099"))
+        s.heartbeat_every = float(e.get("VEYRA_HEARTBEAT", s.heartbeat_every))
         s.max_live = int(e.get("VEYRA_MAX_LIVE", s.max_live))
         s.max_batch = int(e.get("VEYRA_MAX_BATCH", s.max_batch))
         s.pretrained_dirs = tuple(x for x in e.get("VEYRA_PRETRAINED_DIRS", "").split(":") if x)

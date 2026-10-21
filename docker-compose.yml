@@ -16,10 +16,11 @@ services:
 
 volumes:
   # Carpeta compartida con la API (el mismo volumen se declara allí): imágenes, videos, modelos, exportaciones y resultados.
-  # La subcarpeta veyra/ debe existir en el NFS antes de levantar el servicio.
+  # El export debe existir en el NAS antes de levantar el servicio (hoy solo se exportan /mnt/main/heimdall y /mnt/main/vault).
+  # Ruta y servidor se cambian en .env: VEYRA_NFS_ADDR y VEYRA_NFS_DEVICE.
   veyra_data:
     driver: local
     driver_opts:
       type: nfs
-      o: "addr=192.168.1.34,rw,nolock,hard"   # hard: un corte de red detiene la escritura en vez de corromper pesos o resultados
-      device: ":/mnt/main/heimdall/veyra"
+      o: "addr=${VEYRA_NFS_ADDR:-192.168.1.34},rw,nolock,hard"   # hard: un corte de red detiene la escritura en vez de corromper pesos o resultados
+      device: "${VEYRA_NFS_DEVICE:-:/mnt/main/veyra}"

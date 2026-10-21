@@ -18,7 +18,7 @@ docker compose up -d --build
 ```
 
 Requisitos del equipo: Docker con acceso a la GPU por CDI (`docker run --device nvidia.com/gpu=all …`) y que el
-directorio `veyra/` exista en el NFS (ver `docker-compose.yml`).
+export NFS exista en el NAS: por defecto `:/mnt/main/veyra` (hoy el NAS solo exporta `heimdall` y `vault`; ver `.env.example`).
 
 ## Desarrollo
 

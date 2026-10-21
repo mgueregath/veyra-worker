@@ -15,7 +15,7 @@ resuelta (siguiendo enlaces simbólicos), quede fuera de `VEYRA_DATA_ROOT`.
 | Método y ruta | Cuerpo | Respuesta |
 |---|---|---|
 | `POST /register` | `{name, kinds[], max_batch, max_live, capabilities}` (`check_only: true` solo valida el token) | `{worker_id}` |
-| `POST /heartbeat` (cada ~10 s) | `{running_jobs[], free_batch, free_live}` | `{cancel_jobs[]}` |
+| `POST /heartbeat` (cada ~5 s) | `{running_jobs[], free_batch, free_live}` | `{cancel_jobs[]}` |
 | `POST /jobs/claim` | `{kinds[], wait}` | `200 {id, kind, payload}` o `204` (la API puede retener la petición hasta `wait` s) |
 | `POST /jobs/{id}/progress` | campos libres + `log` (últimos 60 kB) | `{cancel: bool}` |
 | `POST /jobs/{id}/finish` | `{status: done\|failed\|cancelled, result, error, log}` | `{ok}` |
