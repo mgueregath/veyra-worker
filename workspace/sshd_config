@@ -1,0 +1,16 @@
+Port 22
+HostKey /workspace/.veyra/sshd/ssh_host_ed25519_key
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowUsers veyra
+AuthorizedKeysFile /etc/ssh/authorized_keys_veyra
+PubkeyAuthentication yes
+UsePAM no
+AllowTcpForwarding yes
+X11Forwarding no
+PermitUserEnvironment yes
+ClientAliveInterval 60
+ClientAliveCountMax 5
+PrintMotd no
+LogLevel INFO

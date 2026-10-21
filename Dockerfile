@@ -1,4 +1,5 @@
 # Veyra worker: PyTorch + Ultralytics + OpenCV con CUDA. Se ejecuta con acceso a la GPU (ver docker-compose.yml).
+FROM docker:27-cli AS dockercli
 FROM pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
 
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1 \
@@ -9,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2
 # dill: los pesos entrenados en el equipo de desarrollo lo necesitan para cargarse
 RUN pip install "ultralytics==8.2.0" opencv-python-headless "numpy<2" dill
 
+# CLI de Docker: el worker lanza los espacios de trabajo con el Docker del equipo (socket montado, ver docker-compose.yml)
+COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
 WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src ./src

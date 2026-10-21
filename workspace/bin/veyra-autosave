@@ -1,0 +1,20 @@
+#!/bin/sh
+# Copia de seguridad del árbol de trabajo (incluye archivos nuevos) en refs/veyra/autosave/<fecha>, sin tocar tu rama ni tu índice.
+cd /workspace/project 2>/dev/null || exit 0
+git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+export GIT_INDEX_FILE="$(mktemp -u)"
+trap 'rm -f "$GIT_INDEX_FILE"' EXIT
+git read-tree HEAD 2>/dev/null || true
+git add -A
+tree=$(git write-tree)
+head_tree=$(git rev-parse -q --verify 'HEAD^{tree}' 2>/dev/null || true)
+last=$(git for-each-ref --sort=-creatordate --count=1 --format='%(objectname)' refs/veyra/autosave)
+last_tree=""; [ -n "$last" ] && last_tree=$(git rev-parse "$last^{tree}")
+if [ "$tree" != "$head_tree" ] && [ "$tree" != "$last_tree" ]; then
+  parent=$(git rev-parse -q --verify HEAD 2>/dev/null || true)
+  c=$(git commit-tree "$tree" ${parent:+-p $parent} -m "autosave $(date -u +%FT%TZ)")
+  git update-ref "refs/veyra/autosave/$(date -u +%Y%m%dT%H%M%SZ)" "$c"
+  echo "autosave: $c"
+else
+  echo "autosave: sin cambios"
+fi

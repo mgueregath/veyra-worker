@@ -7,14 +7,15 @@ from dataclasses import dataclass
 
 from .api import ApiClient, ApiError
 from .config import Settings
-from .jobs import Outcome, live, predict, train
+from .jobs import Outcome, live, predict, train, workspace
 from .jobs.context import JobContext
 from .system import capabilities
 
 log = logging.getLogger("veyra_worker")
 
-HANDLERS = {"train": train.run, "predict": predict.run, "live": live.run}
+HANDLERS = {"train": train.run, "predict": predict.run, "live": live.run, "workspace": workspace.run}
 BATCH_KINDS = ("train", "predict")
+POOL = {"train": "batch", "predict": "batch", "live": "live", "workspace": "workspace"}
 
 
 @dataclass
@@ -27,23 +28,37 @@ class Running:
 class Worker:
     def __init__(self, settings: Settings, api: ApiClient, handlers: dict | None = None):
         self.s, self.api = settings, api
-        self.handlers = handlers or HANDLERS
+        self.handlers = handlers or {
+            k: h for k, h in HANDLERS.items() if k != "workspace" or self._workspaces_ok(settings)
+        }
         self.running: dict[int, Running] = {}
         self.lock = threading.Lock()
         self.stop = threading.Event()
         self.worker_id: int | None = None
 
+    @staticmethod
+    def _workspaces_ok(s: Settings) -> bool:
+        if not s.workspaces:
+            return False
+        if workspace.available(s):
+            return True
+        log.warning("VEYRA_WORKSPACES=1 pero no se puede usar Docker: no se ofrecerán espacios de trabajo")
+        return False
+
     # ---------- capacidad ----------
-    def _count(self, live_kind: bool) -> int:
+    def _count(self, pool: str | bool) -> int:
+        pool = ("live" if pool else "batch") if isinstance(pool, bool) else pool  # (compatibilidad: True = en vivo)
         with self.lock:
-            return sum(1 for r in self.running.values() if (r.kind == "live") == live_kind and r.thread.is_alive())
+            return sum(1 for r in self.running.values() if POOL.get(r.kind) == pool and r.thread.is_alive())
 
     def free_kinds(self) -> list[str]:
         kinds = []
-        if self._count(False) < self.s.max_batch:
+        if self._count("batch") < self.s.max_batch:
             kinds += [k for k in BATCH_KINDS if k in self.handlers]
-        if "live" in self.handlers and self._count(True) < self.s.max_live:
+        if "live" in self.handlers and self._count("live") < self.s.max_live:
             kinds.append("live")
+        if "workspace" in self.handlers and self._count("workspace") < self.s.max_workspaces:
+            kinds.append("workspace")
         return kinds
 
     # ---------- ciclo de vida ----------
@@ -58,7 +73,8 @@ class Worker:
         with self.lock:
             ids = [i for i, r in self.running.items() if r.thread.is_alive()]
         r = self.api.heartbeat(
-            ids, {"free_batch": self.s.max_batch - self._count(False), "free_live": self.s.max_live - self._count(True)}
+            ids,
+            {"free_batch": self.s.max_batch - self._count("batch"), "free_live": self.s.max_live - self._count("live")},
         )
         for jid in (r or {}).get("cancel_jobs", []):
             with self.lock:

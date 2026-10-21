@@ -3,15 +3,20 @@
 services:
   worker:
     build: .
-    image: docker.labs.hapticus.cl/veyra-worker:${VEYRA_WORKER_VERSION:-0.1.0}
+    image: docker.labs.hapticus.cl/veyra-worker:${VEYRA_WORKER_VERSION:-0.2.0}
     restart: unless-stopped
     env_file: .env
     # la API alcanza los flujos en vivo por puertos propios del worker (VEYRA_LIVE_PORTS); con red del equipo no hay que publicarlos uno a uno
     network_mode: host
     devices:
       - nvidia.com/gpu=all        # GPU por CDI (así la expone el Docker de este equipo)
+    # espacios de trabajo: el worker lanza contenedores con el Docker del equipo. El socket equivale a permisos de administrador del
+    # equipo para este contenedor, por eso solo acepta trabajos de tipos conocidos y arma él mismo los comandos (jobs/workspace.py).
+    group_add:
+      - "${DOCKER_GID:-999}"
     volumes:
       - veyra_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
     stop_grace_period: 30s
 
 volumes:

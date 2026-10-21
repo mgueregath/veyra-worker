@@ -1,0 +1,8 @@
+# Entorno del espacio de trabajo de Veyra
+export VIRTUAL_ENV=/workspace/.venv
+export PATH="$VIRTUAL_ENV/bin:/opt/conda/bin:$PATH"
+export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1
+export VEYRA_DATA=/data
+alias ll='ls -la'
+cd /workspace/project 2>/dev/null || true
+echo "Veyra · proyecto ${VEYRA_PROJECT:-?} · datos (solo lectura) en /data · dependencias: pip install … y veyra-apt install …"

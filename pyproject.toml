@@ -1,6 +1,6 @@
 [project]
 name = "veyra-worker"
-version = "0.1.0"
+version = "0.2.0"
 description = "Worker de GPU de Veyra: ejecuta entrenamientos, predicciones y sesiones en vivo por encargo de la API"
 requires-python = ">=3.10"
 dependencies = ["httpx>=0.27"]

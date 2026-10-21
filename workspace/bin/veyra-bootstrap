@@ -1,0 +1,35 @@
+#!/bin/sh
+# Idempotente, como usuario veyra: carpeta, entorno virtual, git y ajustes de sesión.
+set -e
+H=/workspace/home; P=/workspace/project
+mkdir -p "$H/.ssh" "$P"; chmod 700 "$H/.ssh"
+cat > "$H/.ssh/environment" <<EOT
+PATH=/workspace/.venv/bin:/opt/conda/bin:/usr/local/bin:/usr/bin:/bin
+VIRTUAL_ENV=/workspace/.venv
+VEYRA_PROJECT=${VEYRA_PROJECT}
+VEYRA_DATA=/data
+EOT
+[ -x /workspace/.venv/bin/python ] || /opt/conda/bin/python -m venv --system-site-packages /workspace/.venv
+[ -f "$H/.bashrc" ] || cp /etc/veyra-bashrc "$H/.bashrc"
+[ -f "$H/.profile" ] || printf '[ -n "$BASH_VERSION" ] && [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"\n' > "$H/.profile"
+git config --global --get user.name >/dev/null || git config --global user.name "veyra"
+git config --global --get user.email >/dev/null || git config --global user.email "veyra@workspace"
+git config --global --add safe.directory "$P" 2>/dev/null || true
+if [ ! -d "$P/.git" ]; then
+  cd "$P"
+  git init -q -b main
+  printf '.venv/\n__pycache__/\n*.pyc\n.ipynb_checkpoints/\n' > .gitignore
+  : > requirements.txt; : > packages.apt
+  cat > README.md <<EOT
+# Espacio de trabajo: ${VEYRA_PROJECT}
+
+Código de los procesos de visión de este proyecto de Veyra. Es un repositorio git: haz commits; al apagarse el espacio
+se guarda además una copia de seguridad automática en refs/veyra/autosave/*.
+
+- Datos de Veyra (solo lectura): /data/media (imágenes), /data/videos (originales), /data/models (modelos).
+- Dependencias de Python: \`pip install paquete\` (queda en /workspace/.venv, que persiste); anótalas en requirements.txt.
+- Paquetes del sistema: \`veyra-apt install paquete\` (se anota en packages.apt y se reinstala en cada arranque).
+- El espacio se apaga solo tras un rato sin conexiones ni carga; lo que hay en /workspace se conserva.
+EOT
+  git add -A && git commit -q -m "Espacio de trabajo de ${VEYRA_PROJECT}"
+fi
