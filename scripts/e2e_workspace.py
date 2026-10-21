@@ -16,7 +16,7 @@ from veyra_worker.config import Settings  # noqa: E402
 from veyra_worker.jobs import workspace as ws  # noqa: E402
 from veyra_worker.jobs.context import JobContext  # noqa: E402
 
-IMAGE = sys.argv[1] if len(sys.argv) > 1 else "docker.labs.hapticus.cl/veyra-workspace:0.2.0"
+IMAGE = sys.argv[1] if len(sys.argv) > 1 else "docker.labs.hapticus.cl/veyra-workspace:0.3.0"
 SLUG, PORT = "e2etest", 9199
 tmp = Path(tempfile.mkdtemp(prefix="wsE2E_"))
 res = {}

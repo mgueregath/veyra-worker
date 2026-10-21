@@ -36,7 +36,7 @@ class Settings:
     pretrained_dirs: tuple[str, ...] = ()  # carpetas con pesos preentrenados (además de la carpeta compartida)
     # espacios de trabajo (VS Code por SSH): contenedores que este worker lanza con el Docker del equipo
     workspaces: bool = False
-    workspace_image: str = "docker.labs.hapticus.cl/veyra-workspace:0.2.0"
+    workspace_image: str = "docker.labs.hapticus.cl/veyra-workspace:0.3.0"
     workspace_ports: tuple[int, int] = (9100, 9199)
     data_volume: str = ""  # volumen de Docker con la carpeta compartida (se monta en /data, solo lectura)
     max_workspaces: int = 4
