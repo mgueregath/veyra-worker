@@ -1,5 +1,5 @@
 # Espacio de trabajo de un proyecto de Veyra: SSH (para VS Code Remote-SSH), git y el mismo entorno de Python/GPU del worker.
-ARG BASE=docker.labs.hapticus.cl/veyra-worker:0.3.0
+ARG BASE=docker.labs.hapticus.cl/veyra-worker:0.4.0
 FROM ${BASE}
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends openssh-server git sudo iproute2 less nano vim-tiny curl wget \

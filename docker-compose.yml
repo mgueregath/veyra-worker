@@ -3,7 +3,7 @@
 services:
   worker:
     build: .
-    image: docker.labs.hapticus.cl/veyra-worker:${VEYRA_WORKER_VERSION:-0.3.0}
+    image: docker.labs.hapticus.cl/veyra-worker:${VEYRA_WORKER_VERSION:-0.4.0}
     restart: unless-stopped
     env_file: .env
     # la API alcanza los flujos en vivo por puertos propios del worker (VEYRA_LIVE_PORTS); con red del equipo no hay que publicarlos uno a uno

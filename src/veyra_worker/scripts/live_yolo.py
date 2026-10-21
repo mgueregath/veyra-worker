@@ -156,6 +156,7 @@ def main():
     ap.add_argument(
         "--host", default="127.0.0.1", help="dirección donde escucha (el worker usa 0.0.0.0 para que la API lo alcance)"
     )
+    ap.add_argument("--flow", action="store_true", help="flujo de detección en VEYRA_FLOW (JSON: spec, models); ignora --weights")
     ap.add_argument("--port", type=int, required=True)
     ap.add_argument("--token", required=True)
     ap.add_argument("--device", default="0")
@@ -166,13 +167,19 @@ def main():
     ap.add_argument("--stream-width", type=int, default=1280, help="ancho máximo del flujo MJPEG (0 = original)")
     a = ap.parse_args()
 
-    det = (
-        YoloDetector(a.weights, a.imgsz, a.device)
-        if a.detector == "yolo" and a.weights
-        else FakeDetector()
-        if a.detector == "fake"
-        else NullDetector()
-    )
+    if a.flow:
+        from flow_core import FlowDetector
+
+        det = FlowDetector(json.loads(os.environ["VEYRA_FLOW"]), a.imgsz, a.device)
+        a.threshold = 0.0  # cada hoja del flujo trae su propio puntaje mínimo
+    else:
+        det = (
+            YoloDetector(a.weights, a.imgsz, a.device)
+            if a.detector == "yolo" and a.weights
+            else FakeDetector()
+            if a.detector == "fake"
+            else NullDetector()
+        )
     names = json.loads(a.classes) if a.classes else getattr(det, "names", ["objeto"])
     sh = Shared(names, a.threshold)
     srv = ThreadingHTTPServer((a.host, a.port), make_handler(sh, a.token))

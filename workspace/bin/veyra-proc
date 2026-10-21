@@ -18,72 +18,28 @@ por defecto HEAD): lo que no esté confirmado en git no se usa, así cada result
 """
 
 import argparse
-import importlib
 import json
 import os
-import subprocess
 import sys
-import tempfile
 import traceback
 from pathlib import Path
 
-REPO = Path("/workspace/project")
 VENV_PY = Path("/workspace/.venv/bin/python")
 
-
-def git(*args: str, **kw) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", str(REPO), "-c", "safe.directory=*", *args], capture_output=True, **kw)
+from veyra_worker.scripts import procs  # noqa: E402  (módulo compartido con los flujos en vivo)
 
 
-def resolve(ref: str) -> str:
-    if ref.startswith("-"):
-        raise SystemExit(f"referencia inválida: {ref}")
-    r = git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}", text=True)
-    if r.returncode != 0:
-        raise SystemExit(f"no existe la versión «{ref}» en el repositorio del proyecto (¿falta hacer commit o la etiqueta?)")
-    return r.stdout.strip()
-
-
-def checkout(sha: str) -> Path:
-    """Extrae el árbol de ese commit en una carpeta temporal (el volumen del proyecto es de solo lectura)."""
-    dest = Path(tempfile.mkdtemp(prefix="veyra-code-"))
-    arc = git("archive", sha)
-    if arc.returncode != 0:
-        raise SystemExit("no se pudo leer el repositorio: " + arc.stderr.decode()[-300:])
-    subprocess.run(["tar", "-x", "-C", str(dest)], input=arc.stdout, check=True)
-    return dest
-
-
-def manifest(code: Path) -> tuple[list[dict], str | None]:
-    for name in ("veyra.yaml", "veyra.yml", "veyra.json"):
-        f = code / name
-        if f.is_file():
-            try:
-                if name.endswith(".json"):
-                    data = json.loads(f.read_text())
-                else:
-                    import yaml
-
-                    data = yaml.safe_load(f.read_text())
-            except Exception as e:
-                return [], f"{name} no se puede leer: {e}"
-            procs = (data or {}).get("procedures", [])
-            if not isinstance(procs, list):
-                return [], f"{name}: «procedures» debe ser una lista"
-            out = []
-            for p in procs:
-                if not isinstance(p, dict) or not p.get("name") or ":" not in str(p.get("entry", "")):
-                    return [], f"{name}: cada procedimiento necesita «name» y «entry» (módulo:función)"
-                out.append({"name": str(p["name"]), "entry": str(p["entry"]), "doc": str(p.get("doc", "")), "params": p.get("params") or {}})
-            return out, None
-    return [], "El proyecto no tiene veyra.yaml en su repositorio: declara ahí sus procedimientos"
+def fail(e: Exception):
+    raise SystemExit(str(e)) from None
 
 
 def cmd_list(a) -> int:
-    sha = resolve(a.ref)
-    code = checkout(sha)
-    procs, err = manifest(code)
-    print(json.dumps({"ref": sha, "procedures": procs, "error": err}))
+    try:
+        sha = procs.resolve(a.ref)
+        listed, err = procs.manifest(procs.checkout(sha))
+    except procs.ProcError as e:
+        fail(e)
+    print(json.dumps({"ref": sha, "procedures": listed, "error": err}))
     return 0
 
 
@@ -91,18 +47,11 @@ def cmd_run(a) -> int:
     if VENV_PY.exists() and Path(sys.prefix) != Path("/workspace/.venv") and not os.environ.get("VEYRA_PROC_NO_EXEC"):
         os.environ["VEYRA_PROC_NO_EXEC"] = "1"  # con el entorno virtual del proyecto (ahí están sus dependencias)
         os.execv(str(VENV_PY), [str(VENV_PY), *sys.argv])
-    sha = resolve(a.ref)
-    code = checkout(sha)
-    procs, err = manifest(code)
-    proc = next((p for p in procs if p["name"] == a.name), None)
-    if proc is None:
-        raise SystemExit(f"el procedimiento «{a.name}» no está declarado en esa versión ({err or 'revise veyra.yaml'})")
-    params = {**proc["params"], **json.loads(Path(a.params).read_text())}
-    for extra in (code / "src", code):
-        sys.path.insert(0, str(extra))
-    os.chdir(code)
-    mod, _, fn_name = proc["entry"].partition(":")
-    fn = getattr(importlib.import_module(mod), fn_name)
+    try:
+        fn, defaults, sha = procs.load(a.name, a.ref)
+    except procs.ProcError as e:
+        fail(e)
+    params = {**defaults, **json.loads(Path(a.params).read_text())}
     import cv2
 
     images = json.loads(Path(a.images).read_text())

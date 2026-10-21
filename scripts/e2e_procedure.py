@@ -17,7 +17,7 @@ from veyra_worker.config import Settings  # noqa: E402
 from veyra_worker.jobs import procedure as pr  # noqa: E402
 from veyra_worker.jobs.context import JobContext  # noqa: E402
 
-IMAGE = sys.argv[1] if len(sys.argv) > 1 else "docker.labs.hapticus.cl/veyra-workspace:0.3.0"
+IMAGE = sys.argv[1] if len(sys.argv) > 1 else "docker.labs.hapticus.cl/veyra-workspace:0.4.0"
 SLUG, DVOL = "e2eproc", "veyra-e2e-data"
 tmp = Path(tempfile.mkdtemp(prefix="procE2E_"))
 res = {}
