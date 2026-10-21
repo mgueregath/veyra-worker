@@ -14,7 +14,7 @@ comparten una carpeta (NFS) donde viven imágenes, videos, modelos y resultados.
 ```bash
 cp .env.example .env            # completar VEYRA_API_URL y VEYRA_WORKER_TOKEN
 docker compose run --rm worker check    # diagnóstico: carpeta compartida, GPU, versiones, API y token
-docker compose up -d --build
+docker compose pull && docker compose up -d     # imagen docker.labs.hapticus.cl/veyra-worker (o `--build` para construirla aquí)
 ```
 
 Requisitos del equipo: Docker con acceso a la GPU por CDI (`docker run --device nvidia.com/gpu=all …`) y que el
