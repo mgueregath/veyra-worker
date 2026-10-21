@@ -1,13 +1,31 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-inverse.svg">
+    <img src="docs/assets/logo.svg" alt="Veyra" height="72">
+  </picture>
+</p>
+
+<p align="center"><b>Worker de GPU para Veyra: entrena, predice y detecta en vivo en el equipo que tiene la tarjeta.</b></p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="Licencia: AGPL-3.0" src="https://img.shields.io/badge/licencia-AGPL--3.0-78455F"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-2B2029">
+  <img alt="Docker + NVIDIA" src="https://img.shields.io/badge/Docker-NVIDIA%20GPU-2B2029">
+</p>
+
 # Veyra worker
 
-Servicio que corre en el equipo con **GPU** y ejecuta, por encargo de la API de Veyra (que puede estar en otro equipo):
+Servicio que corre en el equipo con **GPU** y ejecuta, por encargo de la API de [Veyra](https://github.com/mgueregath/veyra) (que puede estar en otro equipo):
 
 - **entrenamientos** YOLO,
 - **predicciones por lotes** (preanotar, evaluar, ejecutar sobre imágenes),
-- **sesiones en vivo** sobre video, RTSP o MJPEG.
+- **sesiones en vivo** sobre video, RTSP o MJPEG, con un modelo o con un **flujo** (varios modelos y procedimientos combinados con O / Y),
+- **espacios de trabajo** por proyecto (VS Code por SSH) y **procedimientos** de visión que corren aislados en contenedores.
 
 No tiene acceso a la base de datos: la API le entrega trabajos por HTTP (ver [docs/PROTOCOL.md](docs/PROTOCOL.md)) y ambos
 comparten una carpeta (NFS) donde viven imágenes, videos, modelos y resultados.
+
+**Contenido:** [Puesta en marcha](#puesta-en-marcha) · [Espacios de trabajo](#espacios-de-trabajo-vs-code-por-ssh) · [Procedimientos](#procedimientos-funciones-del-espacio-de-trabajo-dentro-de-los-flujos-de-veyra) · [Desarrollo](#desarrollo) · [Seguridad](#seguridad) · [Licencia](#licencia)
 
 ## Puesta en marcha
 
@@ -54,7 +72,13 @@ en local (`PROGRESS {…}` / `RESULT {…}` por la salida estándar). `live_yolo
 ## Seguridad
 
 - El token del worker se guarda como hash en la API; se envía por la red privada (ZeroTier/LAN).
-- Solo ejecuta tres tipos de trabajo conocidos, nunca comandos arbitrarios.
+- Solo ejecuta tipos de trabajo conocidos (entrenar, predecir, en vivo, espacio de trabajo y procedimiento), nunca comandos arbitrarios.
 - Rechaza rutas fuera de la carpeta compartida (también por enlaces simbólicos) y fuentes `file:`/`concat:`/`data:`.
 - Los flujos en vivo exigen el token de la sesión. El contenedor no corre como root.
-- Ultralytics es AGPL-3.0: ver el aviso en `train_yolo.py`.
+
+## Licencia
+
+Este worker es software libre bajo la **GNU Affero General Public License v3.0** ([AGPL-3.0](LICENSE)), la misma licencia de
+Ultralytics (YOLO), que es lo que ejecuta para entrenar y detectar. Si lo modificas y ofreces el servicio a otras personas por una
+red, debes ofrecerles el código fuente de tu versión. Los logotipos de `docs/assets/` son del kit de marca de Veyra; la tipografía
+DejaVu conserva su licencia ([FONT-LICENSE.txt](docs/assets/FONT-LICENSE.txt)).
