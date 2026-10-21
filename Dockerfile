@@ -6,7 +6,8 @@ ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 ffmpeg tini \
     && rm -rf /var/lib/apt/lists/*
 # Ultralytics 8.2 (mismo que usa Veyra hoy; no soporta YOLO11) y OpenCV sin interfaz gráfica
-RUN pip install "ultralytics==8.2.0" opencv-python-headless "numpy<2"
+# dill: los pesos entrenados en el equipo de desarrollo lo necesitan para cargarse
+RUN pip install "ultralytics==8.2.0" opencv-python-headless "numpy<2" dill
 
 WORKDIR /app
 COPY pyproject.toml README.md ./
