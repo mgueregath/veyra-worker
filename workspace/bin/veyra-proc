@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""Ejecutor de procedimientos del espacio de trabajo (lo invoca el worker en un contenedor aislado).
+
+    veyra-proc list [--ref REF]
+    veyra-proc run --name NOMBRE --ref REF --images lista.json --params params.json --out resultado.json
+
+Los procedimientos los declara el repositorio del proyecto en `veyra.yaml` (o `veyra.json`):
+
+    procedures:
+      - name: manchas
+        entry: lice_motion.veyra:manchas        # módulo:función
+        doc: Detector de manchas por apariencia
+        params: {k: 8, min_score: 4.0}
+
+La función recibe la imagen (BGR, numpy) y los parámetros como argumentos con nombre, y devuelve una lista de
+{"bbox": [x, y, w, h], "score": 0.9, "label": "opcional"}. Se ejecuta el código de un COMMIT concreto (`--ref`,
+por defecto HEAD): lo que no esté confirmado en git no se usa, así cada resultado se puede reproducir.
+"""
+
+import argparse
+import importlib
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import traceback
+from pathlib import Path
+
+REPO = Path("/workspace/project")
+VENV_PY = Path("/workspace/.venv/bin/python")
+
+
+def git(*args: str, **kw) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(REPO), "-c", "safe.directory=*", *args], capture_output=True, **kw)
+
+
+def resolve(ref: str) -> str:
+    if ref.startswith("-"):
+        raise SystemExit(f"referencia inválida: {ref}")
+    r = git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}", text=True)
+    if r.returncode != 0:
+        raise SystemExit(f"no existe la versión «{ref}» en el repositorio del proyecto (¿falta hacer commit o la etiqueta?)")
+    return r.stdout.strip()
+
+
+def checkout(sha: str) -> Path:
+    """Extrae el árbol de ese commit en una carpeta temporal (el volumen del proyecto es de solo lectura)."""
+    dest = Path(tempfile.mkdtemp(prefix="veyra-code-"))
+    arc = git("archive", sha)
+    if arc.returncode != 0:
+        raise SystemExit("no se pudo leer el repositorio: " + arc.stderr.decode()[-300:])
+    subprocess.run(["tar", "-x", "-C", str(dest)], input=arc.stdout, check=True)
+    return dest
+
+
+def manifest(code: Path) -> tuple[list[dict], str | None]:
+    for name in ("veyra.yaml", "veyra.yml", "veyra.json"):
+        f = code / name
+        if f.is_file():
+            try:
+                if name.endswith(".json"):
+                    data = json.loads(f.read_text())
+                else:
+                    import yaml
+
+                    data = yaml.safe_load(f.read_text())
+            except Exception as e:
+                return [], f"{name} no se puede leer: {e}"
+            procs = (data or {}).get("procedures", [])
+            if not isinstance(procs, list):
+                return [], f"{name}: «procedures» debe ser una lista"
+            out = []
+            for p in procs:
+                if not isinstance(p, dict) or not p.get("name") or ":" not in str(p.get("entry", "")):
+                    return [], f"{name}: cada procedimiento necesita «name» y «entry» (módulo:función)"
+                out.append({"name": str(p["name"]), "entry": str(p["entry"]), "doc": str(p.get("doc", "")), "params": p.get("params") or {}})
+            return out, None
+    return [], "El proyecto no tiene veyra.yaml en su repositorio: declara ahí sus procedimientos"
+
+
+def cmd_list(a) -> int:
+    sha = resolve(a.ref)
+    code = checkout(sha)
+    procs, err = manifest(code)
+    print(json.dumps({"ref": sha, "procedures": procs, "error": err}))
+    return 0
+
+
+def cmd_run(a) -> int:
+    if VENV_PY.exists() and Path(sys.prefix) != Path("/workspace/.venv") and not os.environ.get("VEYRA_PROC_NO_EXEC"):
+        os.environ["VEYRA_PROC_NO_EXEC"] = "1"  # con el entorno virtual del proyecto (ahí están sus dependencias)
+        os.execv(str(VENV_PY), [str(VENV_PY), *sys.argv])
+    sha = resolve(a.ref)
+    code = checkout(sha)
+    procs, err = manifest(code)
+    proc = next((p for p in procs if p["name"] == a.name), None)
+    if proc is None:
+        raise SystemExit(f"el procedimiento «{a.name}» no está declarado en esa versión ({err or 'revise veyra.yaml'})")
+    params = {**proc["params"], **json.loads(Path(a.params).read_text())}
+    for extra in (code / "src", code):
+        sys.path.insert(0, str(extra))
+    os.chdir(code)
+    mod, _, fn_name = proc["entry"].partition(":")
+    fn = getattr(importlib.import_module(mod), fn_name)
+    import cv2
+
+    images = json.loads(Path(a.images).read_text())
+    results = {}
+    for i, path in enumerate(images, 1):
+        img = cv2.imread(path)
+        if img is None:
+            results[path] = []
+            continue
+        try:
+            dets = fn(img, **params)
+        except Exception:
+            print(f"ERROR en {path}:\n{traceback.format_exc()[-1500:]}", flush=True)
+            return 3
+        out = []
+        for d in dets or []:
+            x, y, w, h = (float(v) for v in d["bbox"])
+            if w <= 0 or h <= 0:
+                continue
+            out.append({"bbox": [round(x), round(y), round(w), round(h)], "score": float(d.get("score", 1.0)), "label": d.get("label") or ""})
+        results[path] = out
+        if i % 10 == 0:
+            print(f"PROGRESS {i}/{len(images)}", flush=True)
+    Path(a.out).write_text(json.dumps({"ref": sha, "results": results}))
+    print(f"LISTO {len(images)} imágenes con {sha[:8]}", flush=True)
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="veyra-proc")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    ls = sub.add_parser("list")
+    ls.add_argument("--ref", default="HEAD")
+    rn = sub.add_parser("run")
+    rn.add_argument("--name", required=True)
+    rn.add_argument("--ref", default="HEAD")
+    rn.add_argument("--images", required=True)
+    rn.add_argument("--params", required=True)
+    rn.add_argument("--out", required=True)
+    a = ap.parse_args()
+    return cmd_list(a) if a.cmd == "list" else cmd_run(a)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -40,6 +40,7 @@ class Settings:
     workspace_ports: tuple[int, int] = (9100, 9199)
     data_volume: str = ""  # volumen de Docker con la carpeta compartida (se monta en /data, solo lectura)
     max_workspaces: int = 4
+    max_procedures: int = 2
     docker_bin: str = "docker"
 
     @classmethod
@@ -65,5 +66,6 @@ class Settings:
         s.workspace_ports = _port_range(e.get("VEYRA_WORKSPACE_PORTS", "9100-9199"))
         s.data_volume = e.get("VEYRA_DATA_VOLUME", "")
         s.max_workspaces = int(e.get("VEYRA_MAX_WORKSPACES", s.max_workspaces))
+        s.max_procedures = int(e.get("VEYRA_MAX_PROCEDURES", s.max_procedures))
         s.docker_bin = e.get("VEYRA_DOCKER_BIN", s.docker_bin)
         return s

@@ -7,15 +7,21 @@ from dataclasses import dataclass
 
 from .api import ApiClient, ApiError
 from .config import Settings
-from .jobs import Outcome, live, predict, train, workspace
+from .jobs import Outcome, live, predict, procedure, train, workspace
 from .jobs.context import JobContext
 from .system import capabilities
 
 log = logging.getLogger("veyra_worker")
 
-HANDLERS = {"train": train.run, "predict": predict.run, "live": live.run, "workspace": workspace.run}
+HANDLERS = {
+    "train": train.run,
+    "predict": predict.run,
+    "live": live.run,
+    "workspace": workspace.run,
+    "procedure": procedure.run,
+}
 BATCH_KINDS = ("train", "predict")
-POOL = {"train": "batch", "predict": "batch", "live": "live", "workspace": "workspace"}
+POOL = {"train": "batch", "predict": "batch", "live": "live", "workspace": "workspace", "procedure": "procedure"}
 
 
 @dataclass
@@ -29,7 +35,7 @@ class Worker:
     def __init__(self, settings: Settings, api: ApiClient, handlers: dict | None = None):
         self.s, self.api = settings, api
         self.handlers = handlers or {
-            k: h for k, h in HANDLERS.items() if k != "workspace" or self._workspaces_ok(settings)
+            k: h for k, h in HANDLERS.items() if k not in ("workspace", "procedure") or self._workspaces_ok(settings)
         }
         self.running: dict[int, Running] = {}
         self.lock = threading.Lock()
@@ -59,6 +65,8 @@ class Worker:
             kinds.append("live")
         if "workspace" in self.handlers and self._count("workspace") < self.s.max_workspaces:
             kinds.append("workspace")
+        if "procedure" in self.handlers and self._count("procedure") < self.s.max_procedures:
+            kinds.append("procedure")
         return kinds
 
     # ---------- ciclo de vida ----------

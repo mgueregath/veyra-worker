@@ -33,6 +33,13 @@ rato sin conexiones ni carga, y todo lo de `/workspace` se conserva en un volume
 Requiere el socket de Docker del equipo (ver `docker-compose.yml`) y construir la imagen: `docker build -t docker.labs.hapticus.cl/veyra-workspace:<versión> --build-arg BASE=docker.labs.hapticus.cl/veyra-worker:<versión> workspace`.
 Prueba real con Docker: `python scripts/e2e_workspace.py`.
 
+## Procedimientos (funciones del espacio de trabajo dentro de los flujos de Veyra)
+
+Con los espacios activos, el worker también ejecuta **procedimientos**: funciones de visión del repositorio git de un proyecto,
+declaradas en su `veyra.yaml` (`procedures: [{name, entry: módulo:función, params}]`). Cada ejecución corre en un contenedor
+desechable de la imagen del espacio, sin red, con el repositorio y los datos en solo lectura, y usa el código de un **commit**
+concreto (HEAD o una etiqueta), así que el resultado es reproducible. Prueba real: `python scripts/e2e_procedure.py`.
+
 ## Desarrollo
 
 ```bash
