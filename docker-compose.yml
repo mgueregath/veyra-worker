@@ -1,0 +1,25 @@
+# Worker de GPU de Veyra. Uso:  cp .env.example .env  (completar)  ·  docker compose up -d --build
+#   diagnóstico:  docker compose run --rm worker check
+services:
+  worker:
+    build: .
+    image: veyra-worker:0.1.0
+    restart: unless-stopped
+    env_file: .env
+    # la API alcanza los flujos en vivo por puertos propios del worker (VEYRA_LIVE_PORTS); con red del equipo no hay que publicarlos uno a uno
+    network_mode: host
+    devices:
+      - nvidia.com/gpu=all        # GPU por CDI (así la expone el Docker de este equipo)
+    volumes:
+      - veyra_data:/data
+    stop_grace_period: 30s
+
+volumes:
+  # Carpeta compartida con la API (el mismo volumen se declara allí): imágenes, videos, modelos, exportaciones y resultados.
+  # La subcarpeta veyra/ debe existir en el NFS antes de levantar el servicio.
+  veyra_data:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: "addr=192.168.1.34,rw,nolock,hard"   # hard: un corte de red detiene la escritura en vez de corromper pesos o resultados
+      device: ":/mnt/main/heimdall/veyra"
